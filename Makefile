@@ -1,46 +1,40 @@
-#   Copyright (C) 2024 John Törnblom
-#
-# This file is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; see the file COPYING. If not see
-# <http://www.gnu.org/licenses/>.
-
 PS5_HOST ?= ps5
+PS5_PORT ?= 9021
+TARGET := headless-linkdev.elf
+TEST_TARGET := headless_linkdev_test
+HOST_CC ?= cc
+CLANG_FORMAT ?= clang-format
 
-ifdef PS5_PAYLOAD_SDK
-    include $(PS5_PAYLOAD_SDK)/toolchain/prospero.mk
-else
-    $(error PS5_PAYLOAD_SDK is undefined)
+ifndef PS5_PAYLOAD_SDK
+$(error PS5_PAYLOAD_SDK is undefined)
 endif
 
-VERSION_TAG := $(shell git describe --abbrev=10 --dirty --always --tags)
+include $(PS5_PAYLOAD_SDK)/toolchain/prospero.mk
 
-CFLAGS := -O1 -g -Wall -DVERSION_TAG=\"$(VERSION_TAG)\"
-LDADD := `$(PS5_PAYLOAD_SDK)/bin/prospero-sdl2-config --cflags --libs`
-LDADD += -lSDL2_ttf `$(PS5_PAYLOAD_SDK)/bin/prospero-freetype-config --libs`
-LDADD += -lSceRegMgr -lSceUserService -lSDL2main -lSceRemoteplay
+CFLAGS := -Wall -Wextra -Werror -O2
+LDLIBS := -lSceRegMgr -lSceUserService -lSceRemoteplay
 
-ELF := LinkDev.elf
+.PHONY: all clean format format-check send test
 
-all: $(ELF)
+all: $(TARGET)
 
-$(ELF): main.c notify.c regmgr.c pairui.c
-	$(CC) $(CFLAGS) -o $@ $(LDADD) $^
+$(TARGET): main.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDLIBS)
 
 clean:
-	rm -f $(ELF)
+	rm -f $(TARGET) $(TEST_TARGET)
 
-upload: $(ELF)
-	curl -T $^ ftp://$(PS5_HOST):2121/data/homebrew/LinkDev/$^
+test: $(TEST_TARGET)
+	./$(TEST_TARGET)
 
-dist: $(ELF) homebrew.js sce_sys/icon0.png
-	zip -r LinkDev.zip $^
+$(TEST_TARGET): main.c
+	$(HOST_CC) -DSELF_TEST -Wall -Wextra -Werror -O2 -o $@ $<
+
+format:
+	$(CLANG_FORMAT) -i main.c
+
+format-check:
+	$(CLANG_FORMAT) --dry-run --Werror main.c
+
+send: $(TARGET)
+	socat -t 99999999 - TCP:$(PS5_HOST):$(PS5_PORT) < $(TARGET)
