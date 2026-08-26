@@ -165,8 +165,15 @@ The [build workflow](.github/workflows/build.yml) runs formatting, the host
 self-test, and the PS5 build on every push and pull request. Successful builds
 upload the ELF as a workflow artifact.
 
-Tags beginning with `v` also publish `headless-linkdev.elf` to a GitHub
-Release.
+Tags beginning with `v` build the tagged commit, create a GitHub Release with
+generated notes, and attach `headless-linkdev.elf`:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Rerunning a tag workflow replaces the existing ELF asset.
 
 ## Contributing
 
