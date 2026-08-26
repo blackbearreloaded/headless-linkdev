@@ -175,6 +175,16 @@ git push origin v1.0.0
 
 Rerunning a tag workflow replaces the existing ELF asset.
 
+Forks with automatic tag workflows disabled can publish the same existing tag
+manually:
+
+```sh
+gh workflow run build.yml --ref master -f release_tag=v1.0.0
+```
+
+Leaving `release_tag` blank runs the checks and uploads a workflow artifact
+without creating a release.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development checks and

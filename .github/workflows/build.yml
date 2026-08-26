@@ -10,6 +10,11 @@ on:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing v* tag to build and publish (leave blank for build only)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -23,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Install build dependencies
         run: |
@@ -48,15 +55,21 @@ jobs:
           if-no-files-found: error
 
       - name: Publish tagged release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" headless-linkdev.elf --clobber
+          case "$RELEASE_TAG" in
+            v*) ;;
+            *) echo "Release tag must begin with v" >&2; exit 1 ;;
+          esac
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" headless-linkdev.elf --clobber
           else
-            gh release create "$GITHUB_REF_NAME" headless-linkdev.elf \
+            gh release create "$RELEASE_TAG" headless-linkdev.elf \
               --verify-tag \
               --generate-notes \
-              --title "Headless LinkDev $GITHUB_REF_NAME"
+              --title "Headless LinkDev $RELEASE_TAG"
           fi
